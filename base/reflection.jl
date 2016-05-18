@@ -924,6 +924,20 @@ function visit(f, mc::Core.TypeMapLevel)
             isassigned(e, i) && visit(f, e[i])
         end
     end
+    if mc.tname !== nothing
+        for e in mc.tname::SimpleVector
+            e = e::Vector{Any}
+            for i in 2:2:length(e)
+                isassigned(e, i) && visit(f, e[i])
+            end
+        end
+    end
+    if mc.name1 !== nothing
+        e = mc.name1::Vector{Any}
+        for i in 2:2:length(e)
+            isassigned(e, i) && visit(f, e[i])
+        end
+    end
     mc.list !== nothing && visit(f, mc.list)
     mc.any !== nothing && visit(f, mc.any)
     nothing
