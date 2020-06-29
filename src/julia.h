@@ -252,6 +252,7 @@ typedef struct _jl_code_info_t {
         // 4-6 = <unused>
         // 7 = has out-of-band info
     // miscellaneous data:
+    jl_array_t *stmtinfo; // side-channel information from inference to optimize
     jl_value_t *method_for_inference_limit_heuristics; // optional method used during inference
     jl_value_t *linetable; // Table of locations [TODO: make this volatile like slotnames]
     jl_array_t *slotnames; // names of local variables

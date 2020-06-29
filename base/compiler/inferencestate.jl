@@ -61,6 +61,7 @@ mutable struct InferenceState
 
         nssavalues = src.ssavaluetypes::Int
         src.ssavaluetypes = Any[ NOT_FOUND for i = 1:nssavalues ]
+        src.stmtinfo = Any[ nothing for i = 1:length(code) ]
 
         n = length(code)
         s_edges = Any[ nothing for i = 1:n ]

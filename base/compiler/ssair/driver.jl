@@ -48,6 +48,7 @@ function convert_to_ircode(ci::CodeInfo, code::Vector{Any}, coverage::Bool, narg
             insert!(code, idx, Expr(:code_coverage_effect))
             insert!(ci.codelocs, idx, codeloc)
             insert!(ci.ssavaluetypes, idx, Nothing)
+            insert!(ci.stmtinfo, idx, nothing)
             changemap[oldidx] += 1
             if oldidx < length(labelmap)
                 labelmap[oldidx + 1] += 1
@@ -61,6 +62,7 @@ function convert_to_ircode(ci::CodeInfo, code::Vector{Any}, coverage::Bool, narg
                 insert!(code, idx + 1, ReturnNode())
                 insert!(ci.codelocs, idx + 1, ci.codelocs[idx])
                 insert!(ci.ssavaluetypes, idx + 1, Union{})
+                insert!(ci.stmtinfo, idx, nothing)
                 if oldidx < length(changemap)
                     changemap[oldidx + 1] += 1
                     coverage && (labelmap[oldidx + 1] += 1)
@@ -101,7 +103,7 @@ function convert_to_ircode(ci::CodeInfo, code::Vector{Any}, coverage::Bool, narg
     strip_trailing_junk!(ci, code, flags)
     cfg = compute_basic_blocks(code)
     types = Any[]
-    stmts = InstructionStream(code, types, ci.codelocs, flags)
+    stmts = InstructionStream(code, types, ci.stmtinfo, ci.codelocs, flags)
     ir = IRCode(stmts, cfg, collect(LineInfoNode, ci.linetable), sv.slottypes, meta, sv.sptypes)
     return ir
 end

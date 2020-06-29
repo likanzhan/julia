@@ -329,6 +329,7 @@ JL_DLLEXPORT jl_code_info_t *jl_new_code_info_uninit(void)
     src->codelocs = jl_nothing;
     src->ssavaluetypes = NULL;
     src->ssaflags = NULL;
+    src->stmtinfo = NULL;
     src->method_for_inference_limit_heuristics = jl_nothing;
     src->linetable = jl_nothing;
     src->slotflags = NULL;

@@ -247,6 +247,7 @@ function equal(ci1::Core.CodeInfo, ci2::Core.CodeInfo)
     return ci1.code == ci2.code &&
            ci1.codelocs == ci2.codelocs &&
            ci1.ssavaluetypes == ci2.ssavaluetypes &&
+           ci1.stmtinfo == ci2.stmtinfo &&
            ci1.ssaflags == ci2.ssaflags &&
            ci1.method_for_inference_limit_heuristics == ci2.method_for_inference_limit_heuristics &&
            ci1.linetable == ci2.linetable &&

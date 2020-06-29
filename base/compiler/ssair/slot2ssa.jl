@@ -193,6 +193,7 @@ function strip_trailing_junk!(ci::CodeInfo, code::Vector{Any}, flags::Vector{UIn
             resize!(code, i)
             resize!(ci.ssavaluetypes, i)
             resize!(ci.codelocs, i)
+            resize!(ci.stmtinfo, i)
             resize!(flags, i)
             break
         end
@@ -204,6 +205,7 @@ function strip_trailing_junk!(ci::CodeInfo, code::Vector{Any}, flags::Vector{UIn
         push!(code, ReturnNode())
         push!(ci.ssavaluetypes, Union{})
         push!(ci.codelocs, 0)
+        push!(ci.stmtinfo, nothing)
         push!(flags, 0x00)
     end
     nothing

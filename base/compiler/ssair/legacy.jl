@@ -32,7 +32,7 @@ function inflate_ir(ci::CodeInfo, sptypes::Vector{Any}, argtypes::Vector{Any})
     ssavaluetypes = ci.ssavaluetypes
     nstmts = length(code)
     ssavaluetypes = ci.ssavaluetypes isa Vector{Any} ? copy(ci.ssavaluetypes) : Any[ Any for i = 1:(ci.ssavaluetypes::Int) ]
-    stmts = InstructionStream(code, ssavaluetypes, copy(ci.codelocs), copy(ci.ssaflags))
+    stmts = InstructionStream(code, ssavaluetypes, copy(ci.stmtinfo), copy(ci.codelocs), copy(ci.ssaflags))
     ir = IRCode(stmts, cfg, collect(LineInfoNode, ci.linetable), argtypes, Any[], sptypes)
     return ir
 end
@@ -42,12 +42,13 @@ function replace_code_newstyle!(ci::CodeInfo, ir::IRCode, nargs::Int)
     # All but the first `nargs` slots will now be unused
     resize!(ci.slotflags, nargs + 1)
     stmts = ir.stmts
-    ci.code, ci.ssavaluetypes, ci.codelocs, ci.ssaflags, ci.linetable =
-        stmts.inst, stmts.type, stmts.line, stmts.flag, ir.linetable
+    ci.code, ci.ssavaluetypes, ci.stmtinfo, ci.codelocs, ci.ssaflags, ci.linetable =
+        stmts.inst, stmts.type, stmts.info, stmts.line, stmts.flag, ir.linetable
     for metanode in ir.meta
         push!(ci.code, metanode)
         push!(ci.codelocs, 1)
         push!(ci.ssavaluetypes, Any)
+        push!(ci.stmtinfo, nothing)
         push!(ci.ssaflags, 0x00)
     end
     # Translate BB Edges to statement edges

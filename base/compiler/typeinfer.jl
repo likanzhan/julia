@@ -379,6 +379,7 @@ function type_annotate!(sv::InferenceState)
                 deleteat!(states, i)
                 deleteat!(src.ssavaluetypes, i)
                 deleteat!(src.codelocs, i)
+                deleteat!(src.stmtinfo, i)
                 nexpr -= 1
                 if oldidx < length(changemap)
                     changemap[oldidx + 1] = -1
