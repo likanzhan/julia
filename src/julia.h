@@ -523,14 +523,14 @@ typedef struct _jl_typemap_level_t {
     JL_DATA_TYPE
     // these vectors contains vectors of more levels in their intended visit order
     // with an index that gives the functionality of a sorted dict.
-    // next split may be on Type{T} as LeafTypes then TypeNames parents up to Any
+    // next split may be on Type{T} as LeafTypes then TypeName's parents up to Any
     // next split may be on LeafType
     // next split may be on TypeName
     jl_array_t *arg1; // contains LeafType
     jl_array_t *targ; // contains Type{LeafType}
-    jl_array_t *name1; // contains non-abstract TypeName
-    jl_svec_t *tname; // contains a list of Type{TypeName} dicts, for parents up to Any
-    // next a linear list of unsortable things (no more levels)
+    jl_array_t *name1; // contains non-abstract TypeName, TODO: for parents up to (excluding) Any
+    jl_array_t *tname; // contains a dict of Type{TypeName}, for parents up to Any
+    // next a linear list of things too complicated at this level for analysis (no more levels)
     jl_typemap_entry_t *linear;
     // finally, start a new level if the type at offs is Any
     jl_typemap_t *any;

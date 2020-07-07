@@ -925,11 +925,9 @@ function visit(f, mc::Core.TypeMapLevel)
         end
     end
     if mc.tname !== nothing
-        for e in mc.tname::SimpleVector
-            e = e::Vector{Any}
-            for i in 2:2:length(e)
-                isassigned(e, i) && visit(f, e[i])
-            end
+        e = mc.tname::Vector{Any}
+        for i in 2:2:length(e)
+            isassigned(e, i) && visit(f, e[i])
         end
     end
     if mc.name1 !== nothing
