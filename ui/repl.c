@@ -210,7 +210,7 @@ static void lock_low32()
 #endif
 }
 
-JL_DLLEXPORT int main(int argc, char *argv[])
+JL_DLLEXPORT int fake_main(int argc, char *argv[])
 {
     // no-op on Windows, note that the loader exe converts from wchar_t to UTF-8 for us on Windows already.
     uv_setup_args(argc, argv);

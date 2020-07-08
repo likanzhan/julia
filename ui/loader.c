@@ -173,9 +173,9 @@ int main(int argc, char * argv[])
     void * libjuliarepl = load_library(dep_libs[dep_idx]);
     int (*main_fptr)(int, char **) = NULL;
     #ifdef _OS_WINDOWS_
-        main_fptr = (int (*)(int, char **))GetProcAddress((HMODULE) libjuliarepl, "main");
+        main_fptr = (int (*)(int, char **))GetProcAddress((HMODULE) libjuliarepl, "fake_main");
     #else
-        main_fptr = (int (*)(int, char **))dlsym(libjuliarepl, "main");
+        main_fptr = (int (*)(int, char **))dlsym(libjuliarepl, "fake_main");
     #endif
     if (main_fptr == NULL) {
         fprintf(stderr, "ERROR: Unable to find `main()` within libjuliarepl!\n");
