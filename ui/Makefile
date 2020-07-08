@@ -105,12 +105,18 @@ LOADER_LDFLAGS :=
 # Eventually, these will live in separate artifacts
 LIBGCC_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libgcc*.$(SHLIB_EXT)*))
 LIBLLVM_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libLLVM*jl.$(SHLIB_EXT)*))
-LIBJULIAREPL_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libjuliarepl*.$(SHLIB_EXT)*))
+LIBJULIAREPL_DEPLIB := $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
+LIBJULIAREPL_DEBUG_DEPLIB := $(build_shlibdir)/libjuliarepl-debug.$(JL_MAJOR_MINOR_SHLIB_EXT)
 
 # Build list of dependent libraries
 LOADER_CFLAGS += -DDEP_LIBS="$(call dep_libs_gen,$(LIBGCC_DEPLIB)),\
 					          $(call dep_libs_gen,$(LIBLLVM_DEPLIB)),\
                         	  $(call dep_libs_gen,$(LIBJULIAREPL_DEPLIB))"
+
+LOADER_DEBUG_CFLAGS += -DDEP_LIBS="$(call dep_libs_gen,$(LIBGCC_DEPLIB)),\
+					               $(call dep_libs_gen,$(LIBLLVM_DEPLIB)),\
+                        	       $(call dep_libs_gen,$(LIBJULIAREPL_DEBUG_DEPLIB))"
+
 
 ifeq ($(OS),WINNT)
 LOADER_CFLAGS += -municode -mconsole -ffreestanding -nostdlib \
@@ -137,7 +143,7 @@ $(build_bindir)/julia$(EXE): $(BUILDDIR)/loader.o $(build_shlibdir)/libjuliarepl
 	@$(call PRINT_LINK, $(CXXLD) $(LOADER_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
 
 $(build_bindir)/julia-debug$(EXE): $(BUILDDIR)/loader.dbg.obj $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
-	@$(call PRINT_LINK, $(CXXLD) $(LOADER_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
+	@$(call PRINT_LINK, $(CXXLD) $(LOADER_DEBUG_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
 
 
 clean: | $(CLEAN_TARGETS)
