@@ -9,7 +9,7 @@ all: debug release
 # sort is used to remove potential duplicates
 DIRS := $(sort $(build_bindir) $(build_depsbindir) $(build_libdir) $(build_private_libdir) $(build_libexecdir) $(build_includedir) $(build_includedir)/julia $(build_sysconfdir)/julia $(build_datarootdir)/julia $(build_datarootdir)/julia/stdlib $(build_man1dir))
 ifneq ($(BUILDROOT),$(JULIAHOME))
-BUILDDIRS := $(BUILDROOT) $(addprefix $(BUILDROOT)/,base src src/flisp src/support src/clangsa ui doc deps stdlib test test/embedding test/llvmpasses)
+BUILDDIRS := $(BUILDROOT) $(addprefix $(BUILDROOT)/,base src src/flisp src/support src/clangsa cli doc deps stdlib test test/embedding test/llvmpasses)
 BUILDDIRMAKE := $(addsuffix /Makefile,$(BUILDDIRS)) $(BUILDROOT)/sysimage.mk
 DIRS := $(DIRS) $(BUILDDIRS)
 $(BUILDDIRMAKE): | $(BUILDDIRS)
@@ -46,7 +46,7 @@ julia_flisp.boot.inc.phony: julia-deps
 $(BUILDROOT)/doc/_build/html/en/index.html: $(shell find $(BUILDROOT)/base $(BUILDROOT)/doc \( -path $(BUILDROOT)/doc/_build -o -path $(BUILDROOT)/doc/deps -o -name *_constants.jl -o -name *_h.jl -o -name version_git.jl \) -prune -o -type f -print)
 	@$(MAKE) docs
 
-julia-symlink: julia-ui-$(JULIA_BUILD_MODE)
+julia-symlink: julia-cli-$(JULIA_BUILD_MODE)
 ifeq ($(OS),WINNT)
 	@echo '@"%~dp0"\'"$$(echo $(call rel_path,$(BUILDROOT),$(JULIA_EXECUTABLE)) | tr / '\\')" '%*' > $(BUILDROOT)/julia.bat
 	chmod a+x $(BUILDROOT)/julia.bat
@@ -74,16 +74,16 @@ julia-libllvmcalltest: julia-deps
 julia-src-release julia-src-debug : julia-src-% : julia-deps julia_flisp.boot.inc.phony
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/src libjulia-$*
 
-julia-ui-release julia-ui-debug : julia-ui-% : julia-src-%
-	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/ui julia-$*
+julia-cli-release julia-cli-debug : julia-cli-% : julia-src-%
+	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT)/cli julia-$*
 
-julia-sysimg-ji : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+julia-sysimg-ji : julia-stdlib julia-base julia-cli-$(JULIA_BUILD_MODE) | $(build_private_libdir)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk sysimg-ji JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
 
-julia-sysimg-bc : julia-stdlib julia-base julia-ui-$(JULIA_BUILD_MODE) | $(build_private_libdir)
+julia-sysimg-bc : julia-stdlib julia-base julia-cli-$(JULIA_BUILD_MODE) | $(build_private_libdir)
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk sysimg-bc JULIA_EXECUTABLE='$(JULIA_EXECUTABLE)'
 
-julia-sysimg-release julia-sysimg-debug : julia-sysimg-% : julia-sysimg-ji julia-ui-%
+julia-sysimg-release julia-sysimg-debug : julia-sysimg-% : julia-sysimg-ji julia-cli-%
 	@$(MAKE) $(QUIET_MAKE) -C $(BUILDROOT) -f sysimage.mk sysimg-$*
 
 julia-debug julia-release : julia-% : julia-sysimg-% julia-symlink julia-libccalltest julia-libllvmcalltest julia-base-cache
@@ -528,7 +528,7 @@ clean: | $(CLEAN_TARGETS)
 	@-$(MAKE) -C $(BUILDROOT)/base clean
 	@-$(MAKE) -C $(BUILDROOT)/doc clean
 	@-$(MAKE) -C $(BUILDROOT)/src clean
-	@-$(MAKE) -C $(BUILDROOT)/ui clean
+	@-$(MAKE) -C $(BUILDROOT)/cli clean
 	@-$(MAKE) -C $(BUILDROOT)/test clean
 	@-$(MAKE) -C $(BUILDROOT)/stdlib clean
 	-rm -f $(BUILDROOT)/julia
@@ -552,7 +552,7 @@ distcleanall: cleanall
 
 .PHONY: default debug release check-whitespace release-candidate \
 	julia-debug julia-release julia-stdlib julia-deps julia-deps-libs \
-	julia-ui-release julia-ui-debug julia-src-release julia-src-debug \
+	julia-cli-release julia-cli-debug julia-src-release julia-src-debug \
 	julia-symlink julia-base julia-sysimg julia-sysimg-ji julia-sysimg-release julia-sysimg-debug \
 	test testall testall1 test test-* test-revise-* \
 	clean distcleanall cleanall clean-* \

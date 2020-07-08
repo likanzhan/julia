@@ -9,7 +9,7 @@ override CFLAGS += $(JCFLAGS)
 override CXXFLAGS += $(JCXXFLAGS)
 override CPPFLAGS += $(JCPPFLAGS)
 
-SRCS := repl
+SRCS := cli
 
 HEADERS := $(addprefix $(JULIAHOME)/src/,julia.h julia_assert.h julia_threads.h julia_internal.h options.h) \
 	$(BUILDDIR)/../src/julia_version.h $(wildcard $(JULIAHOME)/src/support/*.h) $(LIBUV_INC)/uv.h
@@ -82,10 +82,10 @@ else
 CXXLD := $(LD)
 endif
 
-$(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT): $(OBJS)
+$(build_shlibdir)/libjuliacli.$(JL_MAJOR_MINOR_SHLIB_EXT): $(OBJS)
 	@$(call PRINT_LINK, $(CXXLD) -shared $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(SHIPFLAGS) $(OBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia $(JLDFLAGS) $(CXXLDFLAGS))
 
-$(build_shlibdir)/libjuliarepl-debug.$(JL_MAJOR_MINOR_SHLIB_EXT): $(DOBJS)
+$(build_shlibdir)/libjuliacli-debug.$(JL_MAJOR_MINOR_SHLIB_EXT): $(DOBJS)
 	@$(call PRINT_LINK, $(CXXLD) -shared $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(DEBUGFLAGS) $(DOBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia-debug $(JLDFLAGS) $(CXXLDFLAGS))
 
 
@@ -105,17 +105,17 @@ LOADER_LDFLAGS :=
 # Eventually, these will live in separate artifacts
 LIBGCC_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libgcc*.$(SHLIB_EXT)*))
 LIBLLVM_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libLLVM*jl.$(SHLIB_EXT)*))
-LIBJULIAREPL_DEPLIB := $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
-LIBJULIAREPL_DEBUG_DEPLIB := $(build_shlibdir)/libjuliarepl-debug.$(JL_MAJOR_MINOR_SHLIB_EXT)
+LIBJULIACLI_DEPLIB := $(build_shlibdir)/libjuliacli.$(JL_MAJOR_MINOR_SHLIB_EXT)
+LIBJULIACLI_DEBUG_DEPLIB := $(build_shlibdir)/libjuliacli-debug.$(JL_MAJOR_MINOR_SHLIB_EXT)
 
 # Build list of dependent libraries
 LOADER_CFLAGS += -DDEP_LIBS="$(call dep_libs_gen,$(LIBGCC_DEPLIB)),\
 					          $(call dep_libs_gen,$(LIBLLVM_DEPLIB)),\
-                        	  $(call dep_libs_gen,$(LIBJULIAREPL_DEPLIB))"
+                        	  $(call dep_libs_gen,$(LIBJULIACLI_DEPLIB))"
 
 LOADER_DEBUG_CFLAGS += -DDEP_LIBS="$(call dep_libs_gen,$(LIBGCC_DEPLIB)),\
 					               $(call dep_libs_gen,$(LIBLLVM_DEPLIB)),\
-                        	       $(call dep_libs_gen,$(LIBJULIAREPL_DEBUG_DEPLIB))"
+                        	       $(call dep_libs_gen,$(LIBJULIACLI_DEBUG_DEPLIB))"
 
 
 ifeq ($(OS),WINNT)
@@ -139,10 +139,10 @@ $(BUILDDIR)/loader.dbg.obj: $(SRCDIR)/loader.c $(HEADERS)
 	@$(call PRINT_CC, $(CC) $(LOADER_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) -c $< -o $@)
 
 
-$(build_bindir)/julia$(EXE): $(BUILDDIR)/loader.o $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
+$(build_bindir)/julia$(EXE): $(BUILDDIR)/loader.o $(build_shlibdir)/libjuliacli.$(JL_MAJOR_MINOR_SHLIB_EXT)
 	@$(call PRINT_LINK, $(CXXLD) $(LOADER_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
 
-$(build_bindir)/julia-debug$(EXE): $(BUILDDIR)/loader.dbg.obj $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
+$(build_bindir)/julia-debug$(EXE): $(BUILDDIR)/loader.dbg.obj $(build_shlibdir)/libjuliacli.$(JL_MAJOR_MINOR_SHLIB_EXT)
 	@$(call PRINT_LINK, $(CXXLD) $(LOADER_DEBUG_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
 
 

@@ -4,9 +4,9 @@ How does the Julia runtime execute `julia -e 'println("Hello World!")'` ?
 
 ## `main()`
 
-Execution starts at [`main()` in `ui/repl.c`](https://github.com/JuliaLang/julia/blob/master/ui/repl.c).
+Execution starts at [`main()` in `cli/loader.c`](https://github.com/JuliaLang/julia/blob/master/cli/loader.c), which loads a few libraries, eventually calling [`fake_main()` in `cli/cli.c`](https://github.com/JuliaLang/julia/blob/master/cli/cli.c).
 
-`main()` calls [`libsupport_init()`](https://github.com/JuliaLang/julia/blob/master/src/support/libsupportinit.c)
+`fake_main()` calls [`libsupport_init()`](https://github.com/JuliaLang/julia/blob/master/src/support/libsupportinit.c)
 to set the C library locale and to initialize the "ios" library (see [`ios_init_stdstreams()`](https://github.com/JuliaLang/julia/blob/master/src/support/ios.c)
 and [Legacy `ios.c` library](@ref)).
 
@@ -123,7 +123,7 @@ each deserialized module to run the `__init__()` function.
 Finally [`sigint_handler()`](https://github.com/JuliaLang/julia/blob/master/src/signals-unix.c)
 is hooked up to `SIGINT` and calls `jl_throw(jl_interrupt_exception)`.
 
-`_julia_init()` then returns [back to `main()` in `ui/repl.c`](https://github.com/JuliaLang/julia/blob/master/ui/repl.c)
+`_julia_init()` then returns [back to `main()` in `cli/cli.c.c`](https://github.com/JuliaLang/julia/blob/master/cli/cli.c.c)
 and `main()` calls `true_main(argc, (char**)argv)`.
 
 !!! sidebar "sysimg"
@@ -139,10 +139,10 @@ and `main()` calls `true_main(argc, (char**)argv)`.
 
 ## `true_main()`
 
-[`true_main()`](https://github.com/JuliaLang/julia/blob/master/ui/repl.c) loads the contents of
+[`true_main()`](https://github.com/JuliaLang/julia/blob/master/cli/cli.c.c) loads the contents of
 `argv[]` into [`Base.ARGS`](@ref).
 
-If a `.jl` "program" file was supplied on the command line, then [`exec_program()`](https://github.com/JuliaLang/julia/blob/master/ui/repl.c)
+If a `.jl` "program" file was supplied on the command line, then [`exec_program()`](https://github.com/JuliaLang/julia/blob/master/cli/cli.c.c)
 calls [`jl_load(program,len)`](https://github.com/JuliaLang/julia/blob/master/src/toplevel.c) which
 calls [`jl_parse_eval_all`](https://github.com/JuliaLang/julia/blob/master/src/ast.c) which repeatedly
 calls [`jl_toplevel_eval_flex()`](https://github.com/JuliaLang/julia/blob/master/src/toplevel.c)
