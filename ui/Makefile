@@ -82,10 +82,63 @@ else
 CXXLD := $(LD)
 endif
 
-$(build_bindir)/julia$(EXE): $(OBJS)
-	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(SHIPFLAGS) $(OBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia $(JLDFLAGS) $(CXXLDFLAGS))
-$(build_bindir)/julia-debug$(EXE): $(DOBJS)
-	@$(call PRINT_LINK, $(CXXLD) $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(DEBUGFLAGS) $(DOBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia-debug $(JLDFLAGS) $(CXXLDFLAGS))
+$(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT): $(OBJS)
+	@$(call PRINT_LINK, $(CXXLD) -shared $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(SHIPFLAGS) $(OBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia $(JLDFLAGS) $(CXXLDFLAGS))
+
+$(build_shlibdir)/libjuliarepl-debug.$(JL_MAJOR_MINOR_SHLIB_EXT): $(DOBJS)
+	@$(call PRINT_LINK, $(CXXLD) -shared $(CXXFLAGS) $(CXXLDFLAGS) $(LINK_FLAGS) $(DEBUGFLAGS) $(DOBJS) -o $@ -L$(build_private_libdir) -L$(build_libdir) -L$(build_shlibdir) -ljulia-debug $(JLDFLAGS) $(CXXLDFLAGS))
+
+
+ifeq ($(OS),WINNT)
+define dep_libs_gen
+TEXT(\"$$(echo $(call rel_path,$(build_bindir),$(1)) | sed -e 's_/_\\\\_g')\")
+endef
+else
+define dep_libs_gen
+\"$$(echo $(call rel_path,$(build_bindir),$(1)))\"
+endef
+endif
+
+LOADER_CFLAGS :=
+LOADER_LDFLAGS :=
+
+# Eventually, these will live in separate artifacts
+LIBGCC_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libgcc*.$(SHLIB_EXT)*))
+LIBLLVM_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libLLVM*jl.$(SHLIB_EXT)*))
+LIBJULIAREPL_DEPLIB := $(word 1,$(wildcard $(build_shlibdir)/libjuliarepl*.$(SHLIB_EXT)*))
+
+# Build list of dependent libraries
+LOADER_CFLAGS += -DDEP_LIBS="$(call dep_libs_gen,$(LIBGCC_DEPLIB)),\
+					          $(call dep_libs_gen,$(LIBLLVM_DEPLIB)),\
+                        	  $(call dep_libs_gen,$(LIBJULIAREPL_DEPLIB))"
+
+ifeq ($(OS),WINNT)
+LOADER_CFLAGS += -municode -mconsole -ffreestanding -nostdlib \
+                    -fno-stack-check -fno-stack-protector -mno-stack-arg-probe
+endif
+
+#LOADER_LDFLAGS += -static
+ifeq ($(OS),WINNT)
+LOADER_LDFLAGS += -municode -mconsole -ffreestanding -nostdlib \
+	               --disable-auto-import --disable-runtime-pseudo-reloc \
+	               -lntdll -lkernel32 -lpsapi
+else ifeq ($(OS),Linux)
+LOADER_LDFLAGS += -ldl -rdynamic
+endif
+
+# Define special target for loader.o to take in these flags 
+$(BUILDDIR)/loader.o: $(SRCDIR)/loader.c $(HEADERS)
+	@$(call PRINT_CC, $(CC) $(LOADER_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(SHIPFLAGS) -c $< -o $@)
+$(BUILDDIR)/loader.dbg.obj: $(SRCDIR)/loader.c $(HEADERS)
+	@$(call PRINT_CC, $(CC) $(LOADER_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(DEBUGFLAGS) -c $< -o $@)
+
+
+$(build_bindir)/julia$(EXE): $(BUILDDIR)/loader.o $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
+	@$(call PRINT_LINK, $(CXXLD) $(LOADER_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
+
+$(build_bindir)/julia-debug$(EXE): $(BUILDDIR)/loader.dbg.obj $(build_shlibdir)/libjuliarepl.$(JL_MAJOR_MINOR_SHLIB_EXT)
+	@$(call PRINT_LINK, $(CXXLD) $(LOADER_CFLAGS) $< -o $@ $(LOADER_LDFLAGS) $(LDFLAGS))
+
 
 clean: | $(CLEAN_TARGETS)
 	rm -f *.o *.dbg.obj

@@ -35,6 +35,9 @@
     __ZN4llvm23createLowerSimdLoopPassEv;
     LLVMExtra*;
 
+    /* Necessary for loader.c to find main() within repl.c */
+    main;
+
     /* freebsd */
     environ;
     __progname;

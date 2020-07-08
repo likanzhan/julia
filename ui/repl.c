@@ -19,19 +19,35 @@
 #include <ctype.h>
 #include <inttypes.h>
 
+#if !defined(_OS_WINDOWS_) && !defined(_OS_DARWIN_)
+#include <dlfcn.h>
+#endif
+
 #include "uv.h"
 #include "../src/julia.h"
 #include "../src/options.h"
 #include "../src/julia_assert.h"
 
-JULIA_DEFINE_FAST_TLS()
+// Set up fast TLS access on Linux/FreeBSD
+static void setup_tls()
+{
+#if !defined(_OS_WINDOWS_) && !defined(_OS_DARWIN_)
+    void * fptr = dlsym(NULL, "jl_get_ptls_states_static");
+    if (fptr == NULL) {
+        fprintf(stderr, "ERROR: Cannot find jl_get_ptls_states_static() function address; must define it within loader executable!\n");
+        exit(1);
+    }
+    jl_set_ptls_states_getter((jl_get_ptls_states_func)fptr);
+#endif
+}
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #ifdef JL_ASAN_ENABLED
-JL_DLLEXPORT const char* __asan_default_options() {
+JL_DLLEXPORT const char* __asan_default_options()
+{
     return "allow_user_segv_handler=1:detect_leaks=0";
     // FIXME: enable LSAN after fixing leaks & defining __lsan_default_suppressions(),
     //        or defining __lsan_default_options = exitcode=0 once publicly available
@@ -157,14 +173,9 @@ static NOINLINE int true_main(int argc, char *argv[])
     return 0;
 }
 
-#ifndef _OS_WINDOWS_
-int main(int argc, char *argv[])
+static void lock_low32()
 {
-    uv_setup_args(argc, argv); // no-op on Windows
-#else
-
-static void lock_low32() {
-#if defined(_P64) && defined(JL_DEBUG_BUILD)
+#if defined(_OS_WINDOWS_) && defined(_P64) && defined(JL_DEBUG_BUILD)
     // Wine currently has a that causes it to answer VirtualQuery incorrectly.
     // block usage of the 32-bit address space on win64, to catch pointer cast errors
     char *const max32addr = (char*)0xffffffffL;
@@ -198,19 +209,18 @@ static void lock_low32() {
     }
 #endif
 }
-int wmain(int argc, wchar_t *argv[], wchar_t *envp[])
+
+JL_DLLEXPORT int main(int argc, char *argv[])
 {
-    int i;
+    // no-op on Windows, note that the loader exe converts from wchar_t to UTF-8 for us on Windows already.
+    uv_setup_args(argc, argv);
+
+    // No-op on non-windows
     lock_low32();
-    for (i=0; i<argc; i++) { // write the command line to UTF8
-        wchar_t *warg = argv[i];
-        size_t len = WideCharToMultiByte(CP_UTF8, 0, warg, -1, NULL, 0, NULL, NULL);
-        if (!len) return 1;
-        char *arg = (char*)alloca(len);
-        if (!WideCharToMultiByte(CP_UTF8, 0, warg, -1, arg, len, NULL, NULL)) return 1;
-        argv[i] = (wchar_t*)arg;
-    }
-#endif
+
+    // No-op on non-Linux
+    setup_tls();
+
     libsupport_init();
     int lisp_prompt = (argc >= 2 && strcmp((char*)argv[1],"--lisp") == 0);
     if (lisp_prompt) {
