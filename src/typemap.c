@@ -23,7 +23,7 @@ static int jl_is_any(jl_value_t *t1)
     return t1 == (jl_value_t*)jl_any_type;
 }
 
-static jl_value_t *jl_type_extract_name(jl_value_t *t1)
+static jl_value_t *jl_type_extract_name(jl_value_t *t1 JL_PROPAGATES_ROOT)
 {
     if (jl_is_unionall(t1))
         t1 = jl_unwrap_unionall(t1);
