@@ -528,7 +528,7 @@ typedef struct _jl_typemap_level_t {
     // next split may be on TypeName
     jl_array_t *arg1; // contains LeafType
     jl_array_t *targ; // contains Type{LeafType}
-    jl_array_t *name1; // contains non-abstract TypeName, TODO: for parents up to (excluding) Any
+    jl_array_t *name1; // contains non-abstract TypeName, for parents up to (excluding) Any
     jl_array_t *tname; // contains a dict of Type{TypeName}, for parents up to Any
     // next a linear list of things too complicated at this level for analysis (no more levels)
     jl_typemap_entry_t *linear;
