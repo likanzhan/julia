@@ -9,17 +9,14 @@ mutable struct OptimizationState
     linfo::MethodInstance
     calledges::Vector{Any}
     src::CodeInfo
+    stmt_info::Vector{Any}
     mod::Module
     nargs::Int
     world::UInt
-    min_valid::UInt
-    max_valid::UInt
+    valid_worlds::WorldRange
     sptypes::Vector{Any} # static parameters
     slottypes::Vector{Any}
     const_api::Bool
-    # cached results of calling `_methods_by_ftype` from inference, including
-    # `min_valid` and `max_valid`
-    matching_methods_cache::IdDict{Any, Tuple{Any, UInt, UInt, Bool}}
     # TODO: This will be eliminated once optimization no longer needs to do method lookups
     interp::AbstractInterpreter
     function OptimizationState(frame::InferenceState, params::OptimizationParams, interp::AbstractInterpreter)
@@ -31,10 +28,10 @@ mutable struct OptimizationState
         src = frame.src
         return new(params, frame.linfo,
                    s_edges::Vector{Any},
-                   src, frame.mod, frame.nargs,
-                   frame.world, frame.min_valid, frame.max_valid,
+                   src, frame.stmt_info, frame.mod, frame.nargs,
+                   frame.world, frame.valid_worlds,
                    frame.sptypes, frame.slottypes, false,
-                   frame.matching_methods_cache, interp)
+                   interp)
     end
     function OptimizationState(linfo::MethodInstance, src::CodeInfo, params::OptimizationParams, interp::AbstractInterpreter)
         # prepare src for running optimization passes
@@ -49,6 +46,7 @@ mutable struct OptimizationState
             slottypes = Any[ Any for i = 1:nslots ]
         end
         s_edges = []
+        stmt_info = Any[nothing for i = 1:nssavalues]
         # cache some useful state computations
         toplevel = !isa(linfo.def, Method)
         if !toplevel
@@ -61,10 +59,10 @@ mutable struct OptimizationState
         end
         return new(params, linfo,
                    s_edges::Vector{Any},
-                   src, inmodule, nargs,
-                   get_world_counter(), UInt(1), get_world_counter(),
+                   src, stmt_info, inmodule, nargs,
+                   get_world_counter(), WorldRange(UInt(1), get_world_counter()),
                    sptypes_from_meth_instance(linfo), slottypes, false,
-                   IdDict{Any, Tuple{Any, UInt, UInt, Bool}}(), interp)
+                   interp)
         end
 end
 
@@ -108,11 +106,9 @@ const TOP_TUPLE = GlobalRef(Core, :tuple)
 
 _topmod(sv::OptimizationState) = _topmod(sv.mod)
 
-function update_valid_age!(min_valid::UInt, max_valid::UInt, sv::OptimizationState)
-    sv.min_valid = max(sv.min_valid, min_valid)
-    sv.max_valid = min(sv.max_valid, max_valid)
-    @assert(sv.min_valid <= sv.world <= sv.max_valid,
-            "invalid age range update")
+function update_valid_age!(sv::OptimizationState, valid_worlds::WorldRange)
+    sv.valid_worlds = intersect(sv.valid_worlds, valid_worlds)
+    @assert(sv.world in sv.valid_worlds, "invalid age range update")
     nothing
 end
 
@@ -124,7 +120,7 @@ function add_backedge!(li::MethodInstance, caller::OptimizationState)
 end
 
 function add_backedge!(li::CodeInstance, caller::OptimizationState)
-    update_valid_age!(min_world(li), max_world(li), caller)
+    update_valid_age!(caller, WorldRange(min_world(li), max_world(li)))
     add_backedge!(li.def, caller)
     nothing
 end
@@ -285,7 +281,7 @@ plus_saturate(x::Int, y::Int) = max(x, y, x+y)
 # known return type
 isknowntype(@nospecialize T) = (T === Union{}) || isa(T, Const) || isconcretetype(widenconst(T))
 
-function statement_cost(ex::Expr, line::Int, src::CodeInfo, sptypes::Vector{Any}, slottypes::Vector{Any}, params::OptimizationParams)
+function statement_cost(ex::Expr, line::Int, src::CodeInfo, sptypes::Vector{Any}, slottypes::Vector{Any}, params::OptimizationParams, error_path::Bool = false)
     head = ex.head
     if is_meta_expr_head(head)
         return 0
@@ -320,7 +316,7 @@ function statement_cost(ex::Expr, line::Int, src::CodeInfo, sptypes::Vector{Any}
                 return 0
             elseif (f === Main.Core.arrayref || f === Main.Core.const_arrayref) && length(ex.args) >= 3
                 atyp = argextype(ex.args[3], src, sptypes, slottypes)
-                return isknowntype(atyp) ? 4 : params.inline_nonleaf_penalty
+                return isknowntype(atyp) ? 4 : error_path ? params.inline_error_path_cost : params.inline_nonleaf_penalty
             end
             fidx = find_tfunc(f)
             if fidx === nothing
@@ -330,7 +326,11 @@ function statement_cost(ex::Expr, line::Int, src::CodeInfo, sptypes::Vector{Any}
             end
             return T_FFUNC_COST[fidx]
         end
-        return params.inline_nonleaf_penalty
+        extyp = line == -1 ? Any : src.ssavaluetypes[line]
+        if extyp === Union{}
+            return 0
+        end
+        return error_path ? params.inline_error_path_cost : params.inline_nonleaf_penalty
     elseif head === :foreigncall || head === :invoke
         # Calls whose "return type" is Union{} do not actually return:
         # they are errors. Since these are not part of the typical
@@ -347,7 +347,7 @@ function statement_cost(ex::Expr, line::Int, src::CodeInfo, sptypes::Vector{Any}
         end
         a = ex.args[2]
         if a isa Expr
-            cost = plus_saturate(cost, statement_cost(a, -1, src, sptypes, slottypes, params))
+            cost = plus_saturate(cost, statement_cost(a, -1, src, sptypes, slottypes, params, error_path))
         end
         return cost
     elseif head === :copyast
@@ -365,10 +365,11 @@ end
 function inline_worthy(body::Array{Any,1}, src::CodeInfo, sptypes::Vector{Any}, slottypes::Vector{Any},
                        params::OptimizationParams, cost_threshold::Integer=params.inline_cost_threshold)
     bodycost::Int = 0
+    throw_blocks = find_throw_blocks(body)
     for line = 1:length(body)
         stmt = body[line]
         if stmt isa Expr
-            thiscost = statement_cost(stmt, line, src, sptypes, slottypes, params)::Int
+            thiscost = statement_cost(stmt, line, src, sptypes, slottypes, params, line in throw_blocks)::Int
         elseif stmt isa GotoNode
             # loops are generally always expensive
             # but assume that forward jumps are already counted for from
