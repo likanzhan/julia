@@ -152,7 +152,7 @@ that is an integer, without restricting an algorithm to a specific type of integ
 Abstract types are declared using the [`abstract type`](@ref) keyword. The general syntaxes for declaring an
 abstract type are:
 
-```
+```julia
 abstract type «name» end
 abstract type «name» <: «supertype» end
 ```
